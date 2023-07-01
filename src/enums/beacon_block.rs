@@ -1,35 +1,31 @@
 use super::beacon_block_body::*;
 use serde::{Deserialize, Serialize};
+use ssz_derive::{Decode, Encode};
 use superstruct::superstruct;
+use tree_hash::Hash256;
 
-#[superstruct(
-    variants(Full, Blinded),
-    variant_attributes(derive(Debug, Serialize, Deserialize))
-)]
+/// Only used in APIs, may need encoding but no decoding required
 #[derive(Serialize, Deserialize, Debug)]
-#[serde(untagged)]
 pub struct SignedBlockAndBlobSidecars {
-    /// full variant
-    #[superstruct(only(Full))]
     pub signed_block: Signed<BeaconBlock>,
-    /// using the enum type so it can be passed to functions that uses enum as parameters
-    #[superstruct(only(Full))]
-    pub signed_blob_sidecars: Signed<BlobSidecars>,
-    /// blinded variant
-    #[superstruct(only(Blinded))]
-    pub signed_blinded_block: Signed<BeaconBlock>,
-    #[superstruct(only(Blinded))]
-    pub signed_blinded_blob_sidecars: Signed<BlobSidecars>,
+    pub signed_blob_sidecars: Signed<BlobSidecarsFull>,
+}
+
+/// Only used in APIs, may need encoding but no decoding required
+#[derive(Serialize, Deserialize, Debug)]
+pub struct SignedBlindedBlockAndBlobSidecars {
+    pub signed_blinded_block: Signed<BlindedBeaconBlock>,
+    pub signed_blinded_blob_sidecars: Signed<BlobSidecarsBlinded>,
 }
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct Signed<T> {
     pub message: T,
-    pub signature: String,
+    pub signature: Hash256,
 }
 
-impl<T> Signed<T> {
-    pub fn new(message: T, signature: String) -> Self {
+impl<T: ssz::Encode> Signed<T> {
+    pub fn new(message: T, signature: Hash256) -> Self {
         Self { message, signature }
     }
 }
@@ -38,6 +34,8 @@ impl<T> Signed<T> {
     variants(Full, Blinded),
     variant_attributes(derive(Debug, Serialize, Deserialize))
 )]
+// This struct has no fork versions, so we are able to use superstruct for full/blinded purpose.
+/// Only used in APIs, may need encoding but no decoding required
 #[derive(Serialize, Deserialize, Debug)]
 #[serde(untagged)]
 pub struct BlockAndBlobSidecars {
@@ -45,55 +43,70 @@ pub struct BlockAndBlobSidecars {
     #[superstruct(only(Full))]
     pub block: BeaconBlock,
     #[superstruct(only(Full))]
-    pub blob_sidecars: BlobSidecars,
+    pub blob_sidecars: BlobSidecarsFull,
     /// blinded variant
     #[superstruct(only(Blinded))]
-    pub blinded_block: BeaconBlock,
+    pub blinded_block: BlindedBeaconBlock,
     #[superstruct(only(Blinded))]
-    pub blinded_blob_sidecars: BlobSidecars,
+    pub blinded_blob_sidecars: BlobSidecarsBlinded,
+}
+
+impl BlockAndBlobSidecarsFull {
+    pub fn deconstruct(self) -> (BeaconBlock, BlobSidecarsFull) {
+        (self.block, self.blob_sidecars)
+    }
+}
+
+impl BlockAndBlobSidecarsBlinded {
+    pub fn deconstruct(self) -> (BlindedBeaconBlock, BlobSidecarsBlinded) {
+        (self.blinded_block, self.blinded_blob_sidecars)
+    }
 }
 
 #[superstruct(
     variants(Full, Blinded),
-    variant_attributes(derive(Debug, Serialize, Deserialize, Default))
+    variant_attributes(derive(Debug, Serialize, Deserialize, Default, Decode, Encode))
 )]
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, Encode)]
 #[serde(untagged)]
+#[ssz(enum_behaviour = "transparent")]
 pub struct BlobSidecars {
     #[superstruct(only(Full))]
-    pub blob: String,
+    pub blob: Hash256,
     #[superstruct(only(Blinded))]
-    pub blot_root: String,
+    pub blot_root: Hash256,
 }
 
 #[superstruct(
-    variants(
-        BellatrixBlinded,
-        BellatrixFull,
-        CapellaBlinded,
-        CapellaFull,
-        DenebBlinded,
-        DenebFull
-    ),
-    variant_attributes(derive(Debug, Serialize, Deserialize, Default))
+    variants(Bellatrix, Capella, Deneb,),
+    variant_attributes(derive(Debug, Serialize, Deserialize, Default, Encode, Decode))
 )]
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, Encode)]
 #[serde(untagged)]
+#[ssz(enum_behaviour = "transparent")]
 pub struct BeaconBlock {
     pub slot: usize,
-    #[superstruct(
-        only(BellatrixBlinded),
-        partial_getter(rename = "body_bellatrix_blinded")
-    )]
-    pub body: BeaconBlockBodyBellatrixBlinded,
-    #[superstruct(only(BellatrixFull), partial_getter(rename = "body_bellatrix_full"))]
-    pub body: BeaconBlockBodyBellatrixFull,
-    #[superstruct(only(CapellaBlinded), partial_getter(rename = "body_capella_blinded"))]
-    pub body: BeaconBlockBodyCapellaBlinded,
-    #[superstruct(only(CapellaFull), partial_getter(rename = "body_capella_full"))]
-    pub body: BeaconBlockBodyCapellaFull,
-    #[superstruct(only(DenebBlinded), partial_getter(rename = "body_deneb_blinded"))]
-    pub body: BeaconBlockBodyDenebBlinded,
-    #[superstruct(only(DenebFull), partial_getter(rename = "body_deneb_full"))]
-    pub body: BeaconBlockBodyDenebFull,
+    #[superstruct(only(Bellatrix), partial_getter(rename = "body_bellatrix"))]
+    pub body: FullBeaconBlockBodyBellatrix,
+    #[superstruct(only(Capella), partial_getter(rename = "body_capella"))]
+    pub body: FullBeaconBlockBodyCapella,
+    #[superstruct(only(Deneb), partial_getter(rename = "body_deneb"))]
+    pub body: FullBeaconBlockBodyDeneb,
+}
+
+#[superstruct(
+    variants(Bellatrix, Capella, Deneb,),
+    variant_attributes(derive(Debug, Serialize, Deserialize, Default, Encode, Decode))
+)]
+#[derive(Serialize, Deserialize, Debug, Encode)]
+#[serde(untagged)]
+#[ssz(enum_behaviour = "transparent")]
+pub struct BlindedBeaconBlock {
+    pub slot: usize,
+    #[superstruct(only(Bellatrix), partial_getter(rename = "body_bellatrix"))]
+    pub body: BlindedBeaconBlockBodyBellatrix,
+    #[superstruct(only(Capella), partial_getter(rename = "body_capella"))]
+    pub body: BlindedBeaconBlockBodyCapella,
+    #[superstruct(only(Deneb), partial_getter(rename = "body_deneb"))]
+    pub body: BlindedBeaconBlockBodyDeneb,
 }
