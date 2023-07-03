@@ -1,9 +1,8 @@
-use crate::beacon_node::{
-    BeaconNode, BlindedBlockContents, BlockContents, SignedBlindedBlockContents,
+use crate::enums_1::beacon_node::{
+    BeaconNode, BlindedBlockContents, BlobEnabled, BlockContents, SignedBlindedBlockContents,
     SignedBlockContents,
 };
-use crate::enums::*;
-use crate::BlobEnabled;
+use crate::enums_1::*;
 use tree_hash::Hash256;
 
 pub struct ValidatorClient {

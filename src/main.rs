@@ -1,13 +1,11 @@
-use crate::beacon_node::{BeaconNode, BlindedBlockContents, BlobEnabled, BlockContents};
-use crate::enums::*;
-use crate::validator_client::ValidatorClient;
+use crate::enums_1::*;
 use ssz::{Decode, Encode};
 use std::fmt::Debug;
 
-mod beacon_node;
-mod enums;
-mod validator_client;
+mod enums_1;
+mod enums_2;
 
+/// tests the `enums_1` mod
 fn main() {
     let beacon_node = BeaconNode {};
     let validator_client = ValidatorClient { beacon_node };
